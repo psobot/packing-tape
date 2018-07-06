@@ -38,6 +38,11 @@ print struct.as_hex()
 serious just yet, but it _is_ built on some pretty nice Python magic.
 
 
+## Development
+
+Run tests with `python -m pytest tests -s`.
+
+
 # License
 
 ```
