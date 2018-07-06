@@ -25,7 +25,7 @@ except ImportError:
     AVAILABLE_COLORS = []
 
 
-class SimpleStruct(object):
+class Struct(object):
     __names_propagated = False
 
     @classmethod

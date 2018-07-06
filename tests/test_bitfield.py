@@ -1,10 +1,10 @@
 from unittest import TestCase
-from simplestruct import SimpleStruct
-from simplestruct.constants import Big
-from simplestruct.field_types import integer, bitfield, bit, empty
+from packing_tape import Struct
+from packing_tape.constants import Big
+from packing_tape.field_types import integer, bitfield, bit, empty
 
 
-class BitSimpleStruct(SimpleStruct):
+class BitStruct(Struct):
     int_a = integer(signed=False, endianness=Big)
 
     empty_space = empty(size=3)
@@ -21,9 +21,9 @@ class BitSimpleStruct(SimpleStruct):
     int_b = integer(signed=False, endianness=Big)
 
 
-class TestBitSimpleStruct(TestCase):
+class TestBitStruct(TestCase):
     def test_create(self):
-        instance = BitSimpleStruct(
+        instance = BitStruct(
             int_a=0xFFFFFFFF,
             bit_a=True,
             bit_b=False,
@@ -32,7 +32,7 @@ class TestBitSimpleStruct(TestCase):
             instance.serialize()
 
     def test_parse(self):
-        instance = BitSimpleStruct.parse_from(
+        instance = BitStruct.parse_from(
             "\xFF\xFF\xFF\xFF\xab\xab\xab\x42\x01\x02\x03\x04")
         assert instance.int_a == 0xFFFFFFFF
         assert instance.int_b == 0x01020304
@@ -41,7 +41,7 @@ class TestBitSimpleStruct(TestCase):
         assert instance.bit_b is False
 
     def test_mutate(self):
-        instance = BitSimpleStruct.parse_from(
+        instance = BitStruct.parse_from(
             "\xFF\xFF\xFF\xFF\xab\xab\xab\x42\x01\x02\x03\x04")
         instance.bit_a = False
         assert instance.bit_a is False

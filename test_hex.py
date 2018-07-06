@@ -1,9 +1,9 @@
-from simplestruct import SimpleStruct
-from simplestruct.constants import Big
-from simplestruct.field_types import integer, bitfield, bit, empty
+from packing_tape import Struct
+from packing_tape.constants import Big
+from packing_tape.field_types import integer, bitfield, bit, empty
 
 
-class BitSimpleStruct(SimpleStruct):
+class BitStruct(Struct):
     int_a = integer(signed=False, endianness=Big)
 
     empty_space = empty(size=3)
@@ -26,7 +26,7 @@ class BitSimpleStruct(SimpleStruct):
     int_b = integer(signed=False, endianness=Big)
 
 
-instance = BitSimpleStruct(
+instance = BitStruct(
     int_a=0xFFFFFFFF,
     bit_a=True,
     bit_b=False,

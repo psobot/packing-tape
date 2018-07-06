@@ -1,14 +1,15 @@
-# SimpleStruct
+# packing-tape
 
 A quick-and-dirty wrapper for Python's `struct` module that exposes a simple,
-intuitive interface to read, write, validate, and manipulate binary data:
+intuitive interface to read (unpack), write (pack), validate, and manipulate
+binary data, usually written by other programs. Useful for reverse engineering.
 
 ```python
-from simplestruct import SimpleStruct
-from simplestruct.constants import Big
-from simplestruct.field_types import integer, string, empty
+from packing_tape import Struct
+from packing_tape.constants import Big
+from packing_tape.field_types import integer, string, empty
 
-class SomeStructFromAFile(SimpleStruct):
+class SomeStructFromAFile(Struct):
     number_of_things = integer(signed=False, endianness=Big)
     name = string(size=64, validate=lambda x: 'bad word' not in x)
     not_sure_what_this_field_is_yet = empty(32)
@@ -33,7 +34,7 @@ print struct.as_hex()
 # 0000040: 0000 0000                                ....
 ```
 
-SimpleStruct is super alpha software and should not be used for anything
+`packing_tape` is super alpha software and should not be used for anything
 serious just yet, but it _is_ built on some pretty nice Python magic.
 
 

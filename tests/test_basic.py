@@ -1,21 +1,21 @@
 from unittest import TestCase
-from simplestruct import SimpleStruct
-from simplestruct.constants import Big
-from simplestruct.field_types import integer
+from packing_tape import Struct
+from packing_tape.constants import Big
+from packing_tape.field_types import integer
 
 
-class BasicSimpleStruct(SimpleStruct):
+class BasicStruct(Struct):
     int_a = integer(signed=False, endianness=Big)
     int_b = integer(signed=False, endianness=Big)
 
 
-class TestBasicSimpleStruct(TestCase):
+class TestBasicStruct(TestCase):
     def test_create_simple(self):
-        instance = BasicSimpleStruct(int_a=0xFFFFFFFF, int_b=0x01020304)
+        instance = BasicStruct(int_a=0xFFFFFFFF, int_b=0x01020304)
         assert "\xFF\xFF\xFF\xFF\x01\x02\x03\x04" == instance.serialize()
 
     def test_parse_simple(self):
-        instance = BasicSimpleStruct.parse_from(
+        instance = BasicStruct.parse_from(
             "\xFF\xFF\xFF\xFF\x01\x02\x03\x04")
         assert instance.int_a == 0xFFFFFFFF
         assert instance.int_b == 0x01020304
