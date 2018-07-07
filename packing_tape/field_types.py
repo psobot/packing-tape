@@ -5,7 +5,8 @@ from fields import ByteAlignedStructField, \
     Empty, \
     Bitfield, \
     Bit, \
-    EmbeddedField
+    EmbeddedField, \
+    SwitchField
 from fields import SpaceOccupyingProperty
 
 from constants import (
@@ -110,6 +111,12 @@ def embed(struct_type, offset=None, default=None, validate=None):
         offset=offset,
         default=default,
         validate=validate)
+
+
+def one_of(*types, **kwargs):
+    offset, default = kwargs.get("offset"), kwargs.get("default")
+    offset = infer_offset_from_position_or(offset)
+    return SwitchField(types, offset=offset, default=default)
 
 
 def infer_offset_from_position_or(offset):

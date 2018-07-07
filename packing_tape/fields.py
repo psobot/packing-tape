@@ -35,10 +35,21 @@ class DummyProperty(SpaceOccupyingProperty):
 
 class Validatable:
     def validate(self, instance, raise_exception=True):
+        return self.validate_value(
+            self.fget(instance),
+            raise_exception,
+            instance)
+
+    def preprocess_value_for_validator(self, value):
+        return value
+
+    def validate_value(self, value, raise_exception=False, instance='unknown'):
+        """
+        Given a value (not an instance), run the appropriate validators on it.
+        """
         if self.validator is None:
             return True
-        value = self.fget(instance)
-        if not self.validator(value):
+        if not self.validator(self.preprocess_value_for_validator(value)):
             message = \
                 'Field "%s" failed validation (value "%s", instance %s)' % (
                     self.field_name if hasattr(self, 'field_name') else self,
@@ -159,7 +170,7 @@ class StringField(
         instance.struct_values[hash(self)] = val
 
     def parse_from(self, stream):
-        return unpack_from(str(self.size) + 's', stream, 0)[0]
+        return unpack_from(str(self.size) + 's', stream, 0)[0].rstrip("\x00")
 
     def serialize(self, instance):
         return pack(str(self.size) + 's', self.fget(instance))
@@ -226,6 +237,11 @@ class EmbeddedField(
 
     def validate(self, instance, raise_exception=True):
         value = self.fget(instance)
+        if value is None:
+            return False
+        return self.validate_value(value, raise_exception, instance)
+
+    def validate_value(self, value, raise_exception=False, instance='unknown'):
         if self.validator is not None:
             if self.validator(value):
                 pass
@@ -245,6 +261,101 @@ class EmbeddedField(
         attrs = (
             "field_name",
             "struct_type",
+            "offset",
+            "default",
+        )
+
+        return "<%s %s>" % (
+            self.__class__.__name__,
+            " ".join([
+                "%s=%s" % (attr, getattr(self, attr))
+                for attr in attrs
+            ])
+        )
+
+
+class SwitchField(
+    property,
+    BinaryProperty,
+    LogicalProperty,
+    Validatable,
+    Nameable
+):
+    def __init__(
+        self,
+        subfields,
+        offset,
+        default=None
+    ):
+        super(SwitchField, self).__init__(
+            fget=self.fget, fset=self.fset)
+        self.subfields = subfields
+        self.offset = offset
+        self.default = default
+
+    @property
+    def size(self):
+        # TODO: Allow for variable sizing based on instance data.
+        return sum([s.size for s in self.subfields])
+
+    @property
+    def sort_order(self):
+        return self.offset
+
+    def initialize_with_default(self, instance):
+        self.fset(instance, self.default)
+
+    def get_real_type(self, instance):
+        return instance.struct_values.get(hash(self))
+
+    def set_real_type(self, instance, type):
+        instance.struct_values[hash(self)] = type
+
+    def fget(self, instance):
+        real_type = self.get_real_type(instance)
+        if real_type:
+            return real_type.fget(instance)
+        else:
+            return None
+
+    def fset(self, instance, val):
+        for subfield in self.subfields:
+            subfield.fset(instance, val)
+            if subfield.validate(instance, raise_exception=False):
+                self.set_real_type(instance, subfield)
+                return
+
+    def parse_from(self, stream):
+        for subfield in self.subfields:
+            result = subfield.parse_from(stream)
+
+            # TODO: Expose a better API from subfields so that we don't
+            # have to do this hackety hack:
+            if hasattr(subfield, 'validate_value'):
+                if subfield.validate_value(result, raise_exception=False):
+                    return result
+            else:
+                raise ValueError("Subfield has no validator!")
+        raise ValueError("No subfields parsed! (stream = %s)" % repr(stream))
+
+    def serialize(self, instance):
+        return self.get_real_type(instance).serialize(instance)
+
+    def validate(self, instance, raise_exception=True):
+        real_type = self.get_real_type(instance)
+        if not real_type:
+            if raise_exception:
+                raise ValueError("No valid subfields found for %s" % self)
+            else:
+                return False
+        return real_type.validate(
+            instance,
+            raise_exception=raise_exception)
+
+    def __repr__(self):
+        attrs = (
+            "field_name",
+            "subfields",
             "offset",
             "default",
         )
