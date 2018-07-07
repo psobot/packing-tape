@@ -51,6 +51,10 @@ class ByteAlignedStructField(
             calcsize(self.format_string)
         )
 
+    @property
+    def min_size(self):
+        return calcsize(self.format_string)
+
     def serialize(self, instance):
         return pack(self.format_string, self.fget(instance))
 
@@ -85,6 +89,7 @@ class StringField(
         self,
         size,
         index,
+        null_terminated=True,
         default='',
         validate=None
     ):
@@ -93,6 +98,7 @@ class StringField(
 
         self.size = size
         self.index = index
+        self.null_terminated = null_terminated
         self.default = default
         self.validator = validate
 
@@ -109,15 +115,25 @@ class StringField(
     def fset(self, instance, val):
         instance.struct_values[hash(self)] = val
 
+    @property
+    def format_string(self):
+        return str(self.size) + 's'
+
     def parse_and_get_size(self, stream):
-        fmt_string = str(self.size) + 's'
         return (
-            unpack_from(fmt_string, stream, 0)[0].rstrip("\x00"),
-            calcsize(fmt_string)
+            unpack_from(self.format_string, stream, 0)[0].rstrip("\x00"),
+            calcsize(self.format_string)
         )
 
+    @property
+    def min_size(self):
+        return calcsize(self.format_string)
+
     def serialize(self, instance):
-        return pack(str(self.size) + 's', self.fget(instance))
+        if self.null_terminated:
+            return pack(self.format_string, self.fget(instance))[:-1] + "\x00"
+        else:
+            return pack(self.format_string, self.fget(instance))
 
     def __repr__(self):
         attrs = (
@@ -177,6 +193,10 @@ class EmbeddedField(
     def parse_and_get_size(self, stream):
         instance = self.struct_type.parse_from(stream, allow_invalid=True)
         return instance, instance.size
+
+    @property
+    def min_size(self):
+        return self.struct_type.min_size()
 
     def serialize(self, instance):
         return self.fget(instance).serialize()
@@ -274,6 +294,8 @@ class SwitchField(
 
     def parse_and_get_size(self, stream):
         for subfield in self.subfields:
+            if len(stream) < subfield.min_size:
+                continue
             result, size = subfield.parse_and_get_size(stream)
 
             # TODO: Expose a better API from subfields so that we don't
@@ -283,7 +305,17 @@ class SwitchField(
                     return result, size
             else:
                 raise ValueError("Subfield has no validator!")
-        raise ValueError("No subfields parsed! (stream = %s)" % repr(stream))
+        if all(len(stream) < subfield.min_size for subfield in self.subfields):
+            raise ValueError(
+                "All subfields had minimum sizes greater than the available "
+                "data - no subfields parsed! (stream = %s)" % repr(stream))
+        else:
+            raise ValueError("No subfields parsed! (stream = %s)" % repr(
+                stream))
+
+    @property
+    def min_size(self):
+        return min([s.min_size for s in self.subfields])
 
     def serialize(self, instance):
         return self.get_real_type(instance).serialize(instance)
@@ -328,7 +360,7 @@ class ArrayField(
         self,
         subfield,
         index,
-        default=None
+        default=None  # TODO: add minimum and maximum number of elements?
     ):
         super(ArrayField, self).__init__(
             fget=self.fget, fset=self.fset)
@@ -381,6 +413,10 @@ class ArrayField(
                 raise ValueError("Subfield has no validator!")
         raise ValueError("No subfields parsed! (stream = %s)" % repr(stream))
 
+    @property
+    def min_size(self):
+        return 0
+
     def serialize(self, instance):
         return self.get_real_type(instance).serialize(instance)
 
@@ -427,6 +463,10 @@ class Empty(DummyProperty):
 
     def parse_and_get_size(self, instance):
         return None, self.size
+
+    @property
+    def min_size(self):
+        return self.size
 
 
 class Bit(object):
@@ -513,6 +553,10 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable, Nameable):
 
     def parse_and_get_size(self, stream):
         return (unpack_from('B', stream, 0)[0], self.size)
+
+    @property
+    def min_size(self):
+        return self.size
 
     def serialize(self, instance):
         return pack('B', self.fget(instance))

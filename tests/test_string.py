@@ -6,7 +6,7 @@ from packing_tape.fields import integer, string
 
 class StringStruct(Struct):
     int_a = integer(signed=False, endianness=Big)
-    str_a = string(size=4)
+    str_a = string(size=4, null_terminated=False)
     int_b = integer(signed=False, endianness=Big)
 
 

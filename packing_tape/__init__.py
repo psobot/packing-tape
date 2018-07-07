@@ -51,6 +51,10 @@ class Struct(object):
         cls.__names_propagated = True
 
     @classmethod
+    def min_size(cls):
+        return sum([p.min_size for _, p in cls.binary_properties()])
+
+    @classmethod
     def parse_from(
         cls,
         input_bytes,
@@ -62,7 +66,27 @@ class Struct(object):
         kwargs = {}
         offset = 0
         for property_name, property in cls.binary_properties():
-            val, size = property.parse_and_get_size(input_bytes[offset:])
+            data = input_bytes[offset:]
+            min_size = property.min_size
+            if len(data) < min_size:
+                if allow_invalid:
+                    # TODO: Should we store the fact that
+                    # the buffer was too small?
+                    break
+                else:
+                    if raise_exception:
+                        raise ValueError(
+                            (
+                                "Not enough buffer left to decode %s "
+                                "(needed at least %d bytes, had %d)"
+                            ) % (
+                                cls.__name__,
+                                offset + min_size,
+                                offset + len(data)
+                            )
+                        )
+                    return None
+            val, size = property.parse_and_get_size(data)
             offset += size
             if isinstance(property, LogicalProperty) \
                     or isinstance(property, ProxyTarget):

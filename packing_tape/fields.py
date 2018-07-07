@@ -103,11 +103,12 @@ def big_endian_signed_integer(default=0, validate=None):
         validate=validate)
 
 
-def string(size, default='', validate=None):
+def string(size, null_terminated=True, default='', validate=None):
     index = infer_index_from_position(stack_depth=1)
     return StringField(
         index=index,
         size=size,
+        null_terminated=null_terminated,
         default=default,
         validate=validate)
 

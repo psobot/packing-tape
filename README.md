@@ -7,7 +7,7 @@ binary data, usually written by other programs. Useful for reverse engineering.
 ```python
 from packing_tape import Struct
 from packing_tape.constants import Big
-from packing_tape.field_types import integer, string, empty
+from packing_tape.fields import integer, string, empty
 
 class SomeStructFromAFile(Struct):
     number_of_things = integer(signed=False, endianness=Big)

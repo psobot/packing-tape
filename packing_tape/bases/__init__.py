@@ -39,7 +39,11 @@ class Parseable:
             number of bytes consumed from the bitstream
         )
         """
-        raise NotImplemented("Must implement parse_and_get_size!")
+        raise NotImplementedError("Must implement parse_and_get_size!")
+
+    @property
+    def min_size(self):
+        raise NotImplementedError("Must implement min_size!")
 
 
 class DummyProperty(BinaryProperty):
