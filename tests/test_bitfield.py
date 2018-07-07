@@ -1,7 +1,7 @@
 from unittest import TestCase
 from packing_tape import Struct
 from packing_tape.constants import Big
-from packing_tape.field_types import integer, bitfield, bit, empty
+from packing_tape.fields import integer, bitfield, bit, empty
 
 
 class BitStruct(Struct):

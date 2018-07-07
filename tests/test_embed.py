@@ -1,7 +1,7 @@
 from unittest import TestCase
 from packing_tape import Struct
 from packing_tape.constants import Big
-from packing_tape.field_types import integer, embed
+from packing_tape.fields import integer, embed
 
 
 class IntStruct(Struct):

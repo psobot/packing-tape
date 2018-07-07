@@ -1,14 +1,9 @@
 from __future__ import print_function
 
-from fields import BinaryProperty, LogicalProperty, Nameable
+from field_classes import \
+    BinaryProperty, LogicalProperty, Nameable, ProxyTarget
 
 from utils import as_xxd
-
-
-def gap_size(property, next):
-    if property is None or next is None:
-        return 0
-    return next.offset - (property.offset + property.size)
 
 
 try:
@@ -65,19 +60,22 @@ class Struct(object):
         cls.propagate_names()
 
         kwargs = {}
+        offset = 0
         for property_name, property in cls.binary_properties():
-            kwargs[property_name] = property.parse_from(
-                input_bytes[property.offset:property.offset + property.size]
-            )
+            val, size = property.parse_and_get_size(input_bytes[offset:])
+            offset += size
+            if isinstance(property, LogicalProperty) \
+                    or isinstance(property, ProxyTarget):
+                kwargs[property_name] = val
         instance = cls(**kwargs)
         if not allow_invalid:
             if not instance.validate(raise_exception):
                 return None
         return instance
 
-    @classmethod
-    def size(cls):
-        return sum([x.size for _, x in cls.binary_properties()])
+    @property
+    def size(self):
+        return len(self.serialize())
 
     def __init__(self, **kwargs):
         self.__class__.propagate_names()
@@ -98,15 +96,10 @@ class Struct(object):
                 setattr(self, k, v)
 
     def serialize(self):
-        parts = []
-        previous = None
-        for (property_name, property) in self.binary_properties():
-            gap = gap_size(previous, property)
-            if gap > 0:
-                parts.append("\x00" * gap)
-            parts.append(property.serialize(self))
-            previous = property
-        return "".join(parts)
+        return "".join([
+            property.serialize(self)
+            for (_, property) in self.binary_properties()
+        ])
 
     @property
     def is_valid(self):

@@ -1,7 +1,7 @@
 from unittest import TestCase
 from packing_tape import Struct
 from packing_tape.constants import Big, Little
-from packing_tape.field_types import integer, one_of, string, embed
+from packing_tape.fields import integer, one_of, string, embed
 
 
 class SwitchStruct(Struct):
