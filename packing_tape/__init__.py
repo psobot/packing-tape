@@ -3,6 +3,8 @@ from __future__ import print_function
 from field_classes import \
     BinaryProperty, LogicalProperty, Nameable, ProxyTarget
 
+from bases import StorageTarget
+
 from utils import as_xxd
 
 
@@ -20,7 +22,7 @@ except ImportError:
     AVAILABLE_COLORS = []
 
 
-class Struct(object):
+class Struct(object, StorageTarget):
     __names_propagated = False
 
     @classmethod
@@ -91,19 +93,24 @@ class Struct(object):
             if isinstance(property, LogicalProperty) \
                     or isinstance(property, ProxyTarget):
                 kwargs[property_name] = val
+
+        kwargs['allow_invalid'] = allow_invalid
+        kwargs['raise_exception'] = raise_exception
         instance = cls(**kwargs)
         if not allow_invalid:
             if not instance.validate(raise_exception):
                 return None
+
         return instance
 
     @property
     def size(self):
         return len(self.serialize())
 
+    RESERVED_KWARGS = ('allow_invalid', 'raise_exception')
+
     def __init__(self, **kwargs):
         self.__class__.propagate_names()
-        self.struct_values = {}
 
         # Make sure we initialize proxies last
         binary_properties = self.binary_properties()
@@ -116,8 +123,15 @@ class Struct(object):
                 property.initialize_with_default(self)
         for (k, v) in kwargs.iteritems():
             # Proxies are not in the binary_properties dict
-            if k not in binary_properties_dict:
+            if k not in binary_properties_dict \
+                    and k not in self.RESERVED_KWARGS:
                 setattr(self, k, v)
+
+        # As Python constructors can never return None,
+        # we should only call validate if we're allowed to raise an exception.
+        if not kwargs.get('allow_invalid', False) \
+                and kwargs.get('raise_exception', True):
+            self.validate(raise_exception=True)
 
     def serialize(self):
         return "".join([

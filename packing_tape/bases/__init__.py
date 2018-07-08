@@ -46,12 +46,63 @@ class Parseable:
         raise NotImplementedError("Must implement min_size!")
 
 
+class Serializable:
+    """
+    A property that can be written to the bitstream.
+    """
+    def serialize(self, instance):
+        return self.serialize_value(self.get(instance))
+
+    def serialize_value(self, value):
+        raise NotImplementedError("Must implement serialize_value!")
+
+
 class DummyProperty(BinaryProperty):
     """
     A filler property that has no meaning to the binary stream or
     in Python land.
     """
     pass
+
+
+class Storable:
+    """
+    Given some `instance` object with a `__struct_values` parameter,
+    this class implements methods for storing arbitrary key-value data
+    on that object keyed by an object.
+    """
+
+    @property
+    def storage_key(self):
+        return hash(self)
+
+    def get(self, target):
+        return self.get_key(target, self.storage_key)
+
+    def set(self, target, val):
+        self.set_key(target, self.storage_key, val)
+
+    def get_key(self, target, key):
+        return target._get_struct_value(key)
+
+    def set_key(self, target, key, val):
+        target._set_struct_value(key, val)
+
+
+class StorageTarget:
+    """
+    Allows arbitrary key value pairs to be stored.
+    """
+
+    def _get_struct_value(self, key):
+        if not hasattr(self, '_struct_values'):
+            return None
+        return self._struct_values.get(key)
+
+    def _set_struct_value(self, key, val):
+        if not hasattr(self, '_struct_values'):
+            setattr(self, '_struct_values', {})
+        self._struct_values[key] = val
 
 
 class Nameable:

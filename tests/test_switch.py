@@ -18,7 +18,7 @@ class TestSwitchStruct(TestCase):
         assert SwitchStruct(int_a=110).int_a == 110
 
     def test_create_invalid(self):
-        invalid = SwitchStruct(int_a=55)
+        invalid = SwitchStruct(int_a=55, allow_invalid=True)
         assert not invalid.is_valid
         assert invalid.int_a is None
 

@@ -4,7 +4,10 @@ from bases import BinaryProperty, \
     DummyProperty, \
     Nameable, \
     Validatable, \
-    Parseable
+    Parseable, \
+    Serializable, \
+    Storable, \
+    StorageTarget
 
 
 class ByteAlignedStructField(
@@ -13,7 +16,9 @@ class ByteAlignedStructField(
     LogicalProperty,
     Validatable,
     Nameable,
-    Parseable
+    Parseable,
+    Serializable,
+    Storable
 ):
     def __init__(
         self,
@@ -26,7 +31,7 @@ class ByteAlignedStructField(
         validate=None
     ):
         super(ByteAlignedStructField, self).__init__(
-            fget=self.fget, fset=self.fset)
+            fget=self.get, fset=self.set)
 
         self.format_string = format_string
         self.size = size
@@ -37,13 +42,7 @@ class ByteAlignedStructField(
         self.validator = validate
 
     def initialize_with_default(self, instance):
-        self.fset(instance, self.default)
-
-    def fget(self, instance):
-        return instance.struct_values[hash(self)]
-
-    def fset(self, instance, val):
-        instance.struct_values[hash(self)] = val
+        self.set(instance, self.default)
 
     def parse_and_get_size(self, stream):
         return (
@@ -56,7 +55,7 @@ class ByteAlignedStructField(
         return calcsize(self.format_string)
 
     def serialize(self, instance):
-        return pack(self.format_string, self.fget(instance))
+        return pack(self.format_string, self.get(instance))
 
     def __repr__(self):
         attrs = (
@@ -83,7 +82,9 @@ class StringField(
     LogicalProperty,
     Validatable,
     Nameable,
-    Parseable
+    Parseable,
+    Serializable,
+    Storable
 ):
     def __init__(
         self,
@@ -94,7 +95,7 @@ class StringField(
         validate=None
     ):
         super(StringField, self).__init__(
-            fget=self.fget, fset=self.fset)
+            fget=self.get, fset=self.set)
 
         self.size = size
         self.index = index
@@ -107,13 +108,7 @@ class StringField(
         return self.index
 
     def initialize_with_default(self, instance):
-        self.fset(instance, self.default)
-
-    def fget(self, instance):
-        return instance.struct_values[hash(self)]
-
-    def fset(self, instance, val):
-        instance.struct_values[hash(self)] = val
+        self.set(instance, self.default)
 
     @property
     def format_string(self):
@@ -131,9 +126,9 @@ class StringField(
 
     def serialize(self, instance):
         if self.null_terminated:
-            return pack(self.format_string, self.fget(instance))[:-1] + "\x00"
+            return pack(self.format_string, self.get(instance))[:-1] + "\x00"
         else:
-            return pack(self.format_string, self.fget(instance))
+            return pack(self.format_string, self.get(instance))
 
     def __repr__(self):
         attrs = (
@@ -157,7 +152,9 @@ class EmbeddedField(
     LogicalProperty,
     Validatable,
     Nameable,
-    Parseable
+    Parseable,
+    Serializable,
+    Storable
 ):
     def __init__(
         self,
@@ -167,7 +164,7 @@ class EmbeddedField(
         validate=None
     ):
         super(EmbeddedField, self).__init__(
-            fget=self.fget, fset=self.fset)
+            fget=self.get, fset=self.set)
         self.struct_type = struct_type
         self.index = index
         self.default = default
@@ -182,13 +179,7 @@ class EmbeddedField(
         return self.index
 
     def initialize_with_default(self, instance):
-        self.fset(instance, self.default)
-
-    def fget(self, instance):
-        return instance.struct_values[hash(self)]
-
-    def fset(self, instance, val):
-        instance.struct_values[hash(self)] = val
+        self.set(instance, self.default)
 
     def parse_and_get_size(self, stream):
         instance = self.struct_type.parse_from(stream, allow_invalid=True)
@@ -199,10 +190,10 @@ class EmbeddedField(
         return self.struct_type.min_size()
 
     def serialize(self, instance):
-        return self.fget(instance).serialize()
+        return self.get(instance).serialize()
 
     def validate(self, instance, raise_exception=True):
-        value = self.fget(instance)
+        value = self.get(instance)
         if value is None:
             return False
         return self.validate_value(value, raise_exception, instance)
@@ -246,7 +237,9 @@ class SwitchField(
     LogicalProperty,
     Validatable,
     Nameable,
-    Parseable
+    Parseable,
+    Serializable,
+    Storable
 ):
     def __init__(
         self,
@@ -255,7 +248,7 @@ class SwitchField(
         default=None
     ):
         super(SwitchField, self).__init__(
-            fget=self.fget, fset=self.fset)
+            fget=self.get, fset=self.set)
         self.subfields = subfields
         self.index = index
         self.default = default
@@ -270,25 +263,25 @@ class SwitchField(
         return self.index
 
     def initialize_with_default(self, instance):
-        self.fset(instance, self.default)
+        self.set(instance, self.default)
 
     def get_real_type(self, instance):
-        return instance.struct_values.get(hash(self))
+        return super(SwitchField, self).get(instance)
 
     def set_real_type(self, instance, type):
-        instance.struct_values[hash(self)] = type
+        super(SwitchField, self).set(instance, type)
 
-    def fget(self, instance):
+    def get(self, instance):
         real_type = self.get_real_type(instance)
         if real_type:
-            return real_type.fget(instance)
+            return real_type.get(instance)
         else:
             return None
 
-    def fset(self, instance, val):
+    def set(self, instance, val):
         for subfield in self.subfields:
-            subfield.fset(instance, val)
-            if subfield.validate(instance, raise_exception=False):
+            if subfield.validate_value(val, raise_exception=False):
+                subfield.set(instance, val)
                 self.set_real_type(instance, subfield)
                 return
 
@@ -327,9 +320,29 @@ class SwitchField(
                 raise ValueError("No valid subfields found for %s" % self)
             else:
                 return False
-        return real_type.validate(
-            instance,
-            raise_exception=raise_exception)
+        val = self.get(instance)
+        return real_type.validate_value(
+            val,
+            raise_exception=raise_exception,
+            instance=instance)
+
+    def validate_value(self, val, raise_exception=True, instance='unknown'):
+        for subfield in self.subfields:
+            if subfield.validate_value(val, raise_exception=False):
+                real_type = subfield
+                break
+        else:
+            if raise_exception:
+                raise ValueError(
+                    "No valid subfields would accept value %s for %s" % (
+                        val, self))
+            else:
+                return False
+
+        return real_type.validate_value(
+            val,
+            raise_exception=raise_exception,
+            instance=instance)
 
     def __repr__(self):
         attrs = (
@@ -354,7 +367,9 @@ class ArrayField(
     LogicalProperty,
     Validatable,
     Nameable,
-    Parseable
+    Parseable,
+    Serializable,
+    Storable
 ):
     def __init__(
         self,
@@ -363,7 +378,7 @@ class ArrayField(
         default=None  # TODO: add minimum and maximum number of elements?
     ):
         super(ArrayField, self).__init__(
-            fget=self.fget, fset=self.fset)
+            fget=self.get, fset=self.set)
         self.subfield = subfield
         self.index = index
         self.default = default
@@ -378,63 +393,74 @@ class ArrayField(
         return self.index
 
     def initialize_with_default(self, instance):
-        self.fset(instance, self.default)
+        self.set(instance, self.default)
 
-    def get_real_type(self, instance):
-        return instance.struct_values.get(hash(self))
+    def get_storage_targets(self, instance):
+        return super(ArrayField, self).get(instance)
 
-    def set_real_type(self, instance, type):
-        instance.struct_values[hash(self)] = type
+    def set_storage_targets(self, instance, targets):
+        return super(ArrayField, self).set(instance, targets)
 
-    def fget(self, instance):
-        real_type = self.get_real_type(instance)
-        if real_type:
-            return real_type.fget(instance)
-        else:
-            return None
+    def get(self, instance):
+        targets = super(ArrayField, self).get(instance)
+        return [self.subfield.get(target) for target in targets]
 
-    def fset(self, instance, val):
-        for subfield in self.subfields:
-            subfield.fset(instance, val)
-            if subfield.validate(instance, raise_exception=False):
-                self.set_real_type(instance, subfield)
-                return
+    def set(self, instance, vals):
+        if not isinstance(vals, list) and not isinstance(vals, tuple):
+            raise ValueError(
+                "This property (%s) requires an array or tuple value." % (
+                    instance))
+        # Create a new StorageTarget for each of the sub-values present.
+        self.set_storage_targets(instance, [StorageTarget() for _ in vals])
+
+        # Call the subfield's setter but passing each of these targets
+        # instead of the original instance.
+        for target, val in zip(self.get_storage_targets(instance), vals):
+            self.subfield.set(target, val)
 
     def parse_and_get_size(self, stream):
-        for subfield in self.subfields:
-            result = subfield.parse_from(stream)
+        results = []
+        total_size = 0
+        while (total_size + self.subfield.min_size) <= len(stream):
+            result, size = self.subfield.parse_and_get_size(
+                stream[total_size:])
 
-            # TODO: Expose a better API from subfields so that we don't
-            # have to do this hackety hack:
-            if hasattr(subfield, 'validate_value'):
-                if subfield.validate_value(result, raise_exception=False):
-                    return result
-            else:
-                raise ValueError("Subfield has no validator!")
-        raise ValueError("No subfields parsed! (stream = %s)" % repr(stream))
+            if not self.subfield.validate_value(result, raise_exception=False):
+                print "Subfield could not validate: %s" % result
+                break
+
+            results.append(result)
+            total_size += size
+        return results, total_size
 
     @property
     def min_size(self):
         return 0
 
-    def serialize(self, instance):
-        return self.get_real_type(instance).serialize(instance)
+    def serialize_value(self, values):
+        return "".join([
+            self.subfield.serialize_value(val)
+            for val in values
+        ])
 
     def validate(self, instance, raise_exception=True):
-        real_type = self.get_real_type(instance)
-        if not real_type:
-            if raise_exception:
-                raise ValueError("No valid subfields found for %s" % self)
-            else:
-                return False
-        return real_type.validate(
-            instance,
-            raise_exception=raise_exception)
+        values = self.get(instance)
+        storage_targets = self.get_storage_targets(instance)
+        if values:
+            return all([
+                self.subfield.validate_value(
+                    value,
+                    raise_exception=raise_exception,
+                    instance=target)
+                for (target, value) in zip(storage_targets, values)
+            ])
+        else:
+            return True
 
     def __repr__(self):
         attrs = (
             "field_name",
-            "subfields",
+            "subfield",
             "index",
             "default",
         )
@@ -492,8 +518,8 @@ class ProxyTarget:
 class BitProxy(FieldProxy, Validatable):
     def __init__(self, parent, bit_index, default=False, validate=None):
         super(BitProxy, self).__init__(
-            fget=self.fget,
-            fset=self.fset)
+            fget=self.get,
+            fset=self.set)
         self.parent = parent
         self.bit_index = bit_index
         self.bitmask = 1 << (7 - self.bit_index)
@@ -508,30 +534,32 @@ class BitProxy(FieldProxy, Validatable):
     def size(self):
         return 1
 
-    def fget(self, instance):
-        value = self.parent.fget(instance)
+    def get(self, instance):
+        value = self.parent.get(instance)
         if isinstance(value, str):
             asint = ord(value)
         else:
             asint = value
         return bool(asint & self.bitmask)
 
-    def fset(self, instance, value):
-        existing_field_value = self.parent.fget(instance)
+    def set(self, instance, value):
+        existing_field_value = self.parent.get(instance)
         existing_field_value &= ~self.bitmask
         if value:
             existing_field_value |= self.bitmask
-        return self.parent.fset(instance, existing_field_value)
+        return self.parent.set(instance, existing_field_value)
 
 
-class Bitfield(property, ProxyTarget, BinaryProperty, Parseable, Nameable):
+class Bitfield(property, ProxyTarget, BinaryProperty, Parseable,
+               Serializable,
+               Storable, Nameable):
     size = 1
     field_count = 8
 
     def __init__(self, index, *members):
         super(Bitfield, self).__init__(
-            fget=self.fget,
-            fset=self.fset)
+            fget=self.get,
+            fset=self.set)
         if sum([m.size for m in members]) != self.field_count:
             raise ValueError(
                 "Members passed to Bitfield must sum to %d "
@@ -545,12 +573,6 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable, Nameable):
     def sort_order(self):
         return self.index
 
-    def fget(self, instance):
-        return instance.struct_values[hash(self)]
-
-    def fset(self, instance, val):
-        instance.struct_values[hash(self)] = val
-
     def parse_and_get_size(self, stream):
         return (unpack_from('B', stream, 0)[0], self.size)
 
@@ -559,7 +581,7 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable, Nameable):
         return self.size
 
     def serialize(self, instance):
-        return pack('B', self.fget(instance))
+        return pack('B', self.get(instance))
 
     def initialize_with_default(self, instance):
         default = 0
@@ -567,7 +589,7 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable, Nameable):
         for i, bit_default in enumerate(defaults):
             default <<= 1
             default |= 1 if bit_default else 0
-        self.fset(instance, default)
+        self.set(instance, default)
 
     def __repr__(self):
         return "<%s index=%d members=%s>" % (
