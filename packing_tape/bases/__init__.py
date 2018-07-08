@@ -1,13 +1,22 @@
 from validatable import Validatable
 
 
+class Sizeable:
+    def get_size(self, storage_target):
+        """
+        A convenience method to allow properties to specify a static
+        or dynamic size as a regular property or as a function.
+        """
+        return self.size
+
+
 class SpaceOccupyingProperty:
     """
     Any property that takes up one or more bytes, even if a DummyProperty.
     """
 
 
-class BinaryProperty(SpaceOccupyingProperty):
+class BinaryProperty(SpaceOccupyingProperty, Sizeable):
     """
     A property that should be written out to the binary stream.
     Includes things like integers and bitfields, but not single bits.
@@ -19,7 +28,7 @@ class BinaryProperty(SpaceOccupyingProperty):
         return self.index
 
 
-class LogicalProperty:
+class LogicalProperty(Sizeable):
     """
     A property that has semantic or logical meaning in Python,
     but not at the bitstream level (i.e.: maybe a single bit).
@@ -52,13 +61,6 @@ class Serializable:
     """
     def serialize(self, instance):
         return self.serialize_value(self.get(instance))
-
-    def get_size(self, storage_target):
-        """
-        A convenience method to allow properties to specify a static
-        or dynamic size as a regular property or as a function.
-        """
-        return self.size
 
 
 class DummyProperty(BinaryProperty):

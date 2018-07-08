@@ -6,20 +6,7 @@ from field_classes import \
 from bases import StorageTarget
 
 from utils import as_xxd
-
-
-try:
-    from colorama import Fore
-    AVAILABLE_COLORS = [
-        Fore.BLUE,
-        Fore.CYAN,
-        Fore.GREEN,
-        Fore.MAGENTA,
-        Fore.RED,
-        Fore.YELLOW,
-    ]
-except ImportError:
-    AVAILABLE_COLORS = []
+from xxd import generate_colors_and_header
 
 
 class Struct(object, StorageTarget):
@@ -136,13 +123,26 @@ class Struct(object, StorageTarget):
             for (_, property) in self.binary_properties()
         ])
 
-    RESERVED_KWARGS = (
+    RESERVED_KWARGS = set([
         'allow_invalid',
         'raise_exception'
-    )
+    ])
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.__class__.propagate_names()
+
+        has_args = len(args) > 0
+        has_kwargs = len(set(kwargs.keys()) - self.RESERVED_KWARGS) > 0
+        if has_args and has_kwargs:
+            # TODO: Can we do something more like how Python does arg setting?
+            raise TypeError(
+                "Pass either args or kwargs to __init__, not both.")
+
+        if has_args:
+            # TODO: Also allow setting of logical
+            # properties via positional args?
+            for (k, _), v in zip(self.binary_properties(), args):
+                kwargs[k] = v
 
         # Make sure we initialize proxies last
         binary_properties = self.binary_properties()
@@ -182,44 +182,6 @@ class Struct(object, StorageTarget):
         return True
 
     def as_hex(self, colorize=False, show_legend=True):
-        color_array = []
-        header = ''
-
-        if colorize and AVAILABLE_COLORS:
-            color_index = 0
-            legend = []
-
-            used_positions_and_colors = {}
-            offset = 0
-            for (property_name, property) in self.logical_properties():
-                end = offset + property.get_size(self)
-                position = (offset, end)
-
-                existing_color = used_positions_and_colors.get(position)
-                if existing_color:
-                    chosen_color = existing_color
-                else:
-                    chosen_color = AVAILABLE_COLORS[
-                        color_index % len(AVAILABLE_COLORS)
-                    ]
-                    color_index += 1
-                    used_positions_and_colors[position] = chosen_color
-
-                color_array.append((position, chosen_color))
-                legend.append(((property_name, property), chosen_color))
-                offset = end
-
-            if show_legend:
-                header += "%s\nLegend:\n\t" % (self)
-                header += "\n\t".join([
-                    "%s%s: %s%s" % (
-                        color,
-                        property_name,
-                        property.fget(self),
-                        Fore.RESET
-                    )
-                    for ((property_name, property), color) in legend
-                ])
-                header += "\n"
+        color_array, header = generate_colors_and_header(self, colorize, show_legend)
         data = as_xxd(self.serialize(), colors=color_array)
         return header + data
