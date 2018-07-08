@@ -67,8 +67,8 @@ class TestEXSHeaderParsing(TestCase):
         test_file_path = os.path.join(filedir, '68 Bell Player.exs')
         indata = open(test_file_path).read()
 
-        header = EXSFile.parse_from(indata)
-        assert len(header.objects) == 618
-        assert isinstance(header.objects[0], EXSHeader)
-
-        assert len(header.serialize()) == len(indata)
+        file = EXSFile.parse_from(indata)
+        assert len(file.objects) == 618
+        assert isinstance(file.objects[0], EXSHeader)
+        print file.as_hex(True)
+        assert len(file.serialize()) == len(indata)

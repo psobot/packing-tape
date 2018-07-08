@@ -469,8 +469,10 @@ class ArrayField(
         )
 
 
-class Empty(DummyProperty, Serializable):
+class Empty(property, DummyProperty, Serializable, Storable):
     def __init__(self, index, size):
+        super(Empty, self).__init__(
+            fget=self.get, fset=self.set)
         self.index = index
         self.size = size
 

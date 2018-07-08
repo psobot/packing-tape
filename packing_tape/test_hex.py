@@ -24,18 +24,7 @@ class MyStruct(Struct):
 
     bit_a, bit_b = bits.expand()
 
-    int_b = integer(signed=False, endianness=Big)
-    int_c = integer(signed=False, endianness=Big)
-    int_d = integer(signed=False, endianness=Big)
-    int_e = integer(signed=False, endianness=Big)
-    int_f = integer(signed=False, endianness=Big)
-    int_g = integer(signed=False, endianness=Big)
-    str_a = string(size=64)
     embedded = embed(EmbeddedStruct, default=EmbeddedStruct(2, 3, 4, 5))
-    int_h = integer(signed=False, endianness=Big)
-    int_i = integer(signed=False, endianness=Big)
-    int_j = integer(signed=False, endianness=Big)
-    int_k = integer(signed=False, endianness=Big, default=0x1234)
 
 
 instance = MyStruct(

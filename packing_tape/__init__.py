@@ -48,6 +48,19 @@ class Struct(object, StorageTarget):
         ], key=lambda x: x[1].sort_order)
 
     @classmethod
+    def all_properties(cls):
+        return cls.memoize(cls.compute_all_properties)
+
+    @classmethod
+    def compute_all_properties(cls):
+        return sorted([
+            (p, getattr(cls, p))
+            for p in dir(cls)
+            if isinstance(getattr(cls, p), LogicalProperty) or
+            isinstance(getattr(cls, p), BinaryProperty)
+        ], key=lambda x: x[1].sort_order)
+
+    @classmethod
     def propagate_names(cls):
         cls.memoize(cls.heavy_propagate_names)
 

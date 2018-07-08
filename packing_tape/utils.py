@@ -1,3 +1,4 @@
+from collections import defaultdict
 import string
 
 
@@ -20,6 +21,12 @@ def colorize(i, char, colors):
     Apply the colors from the colors array onto the given
     character given the index i.
     """
+    if isinstance(colors, dict):
+        if i in colors:
+            return colors.get(i) + char + RESET_ALL
+        else:
+            return char
+
     for (start, end), color in colors:
         if start <= i and end > i:
             return color + char + RESET_ALL
@@ -51,6 +58,14 @@ def yield_xxd_bufs(buf, start, line_length, colors):
         start += line_length
 
 
+def to_colors_dict(colors):
+    d = {}
+    for (start, end), color in colors:
+        for i in xrange(start, end):
+            d[i] = color
+    return d
+
+
 def pre_process_color_array(colors):
     """
     Ensure colors are in ascending order and that no colors
@@ -74,5 +89,5 @@ def as_xxd(buf, start=0, line_length=16, colors=[]):
     the first element of the tuple is a [start, end) pair and the second
     element is a Colorama (i.e.: ANSI) color code.
     """
-    colors = list(pre_process_color_array(colors))
+    colors = to_colors_dict(list(pre_process_color_array(colors)))
     return '\n'.join(yield_xxd_bufs(buf, start, line_length, colors))
