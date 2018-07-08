@@ -190,8 +190,10 @@ class Struct(object, StorageTarget):
             legend = []
 
             used_positions_and_colors = {}
+            offset = 0
             for (property_name, property) in self.logical_properties():
-                position = (property.offset, property.offset + property.size)
+                end = offset + property.get_size(self)
+                position = (offset, end)
 
                 existing_color = used_positions_and_colors.get(position)
                 if existing_color:
@@ -205,6 +207,7 @@ class Struct(object, StorageTarget):
 
                 color_array.append((position, chosen_color))
                 legend.append(((property_name, property), chosen_color))
+                offset = end
 
             if show_legend:
                 header += "%s\nLegend:\n\t" % (self)

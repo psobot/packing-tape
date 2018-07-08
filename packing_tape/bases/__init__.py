@@ -53,9 +53,6 @@ class Serializable:
     def serialize(self, instance):
         return self.serialize_value(self.get(instance))
 
-    def serialize_value(self, value):
-        raise NotImplementedError("Must implement serialize_value!")
-
     def get_size(self, storage_target):
         """
         A convenience method to allow properties to specify a static

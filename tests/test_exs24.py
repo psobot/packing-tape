@@ -8,8 +8,6 @@ This test attempts to parse an Apple Logic EXS24 sampler instrument,
 which is a proprietary binary format with its roots in the 90s.
 """
 
-__location__ = os.path.realpath(os.path.dirname(__file__))
-
 
 class EXSObjectHeader(Struct):
     type_signature = integer()
@@ -60,17 +58,17 @@ class EXSParam(Struct):
 
 class EXSFile(Struct):
     objects = array_of(one_of(
-        EXSHeader,
-        EXSZone,
-        EXSGroup,
-        EXSSample,
-        EXSParam
-    ))
+        EXSHeader, EXSZone, EXSGroup, EXSSample, EXSParam))
 
 
 class TestEXSHeaderParsing(TestCase):
     def test_parse_valid(self):
-        test_file_path = os.path.join(__location__, '68 Bell Player.exs')
-        header = EXSFile.parse_from(open(test_file_path).read())
+        filedir = os.path.realpath(os.path.dirname(__file__))
+        test_file_path = os.path.join(filedir, '68 Bell Player.exs')
+        indata = open(test_file_path).read()
+
+        header = EXSFile.parse_from(indata)
         assert len(header.objects) == 618
         assert isinstance(header.objects[0], EXSHeader)
+
+        assert len(header.serialize()) == len(indata)

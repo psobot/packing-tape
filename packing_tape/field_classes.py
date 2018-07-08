@@ -379,7 +379,7 @@ class ArrayField(
 
     def get_size(self, instance):
         return sum([
-            self.subfield.size(target)
+            self.subfield.get_size(target)
             for target in super(ArrayField, self).get(instance)
         ])
 
@@ -431,10 +431,11 @@ class ArrayField(
     def min_size(self):
         return 0
 
-    def serialize_value(self, values):
+    def serialize(self, instance):
+        targets = super(ArrayField, self).get(instance)
         return "".join([
-            self.subfield.serialize_value(val)
-            for val in values
+            self.subfield.serialize(target)
+            for target in targets
         ])
 
     def validate(self, instance, raise_exception=True):
