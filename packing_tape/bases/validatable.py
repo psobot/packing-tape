@@ -20,3 +20,9 @@ class Validatable:
                 return False
             raise ValueError(message)
         return True
+
+    def remove_validator(self):
+        self.replace_validator()
+
+    def replace_validator(self, validator=None):
+        self.validator = validator

@@ -170,9 +170,8 @@ class EmbeddedField(
         self.default = default
         self.validator = validate
 
-    @property
-    def size(self):
-        return self.struct_type.size()
+    def get_size(self, instance):
+        return len(self.get(instance))
 
     @property
     def sort_order(self):
@@ -183,7 +182,7 @@ class EmbeddedField(
 
     def parse_and_get_size(self, stream):
         instance = self.struct_type.parse_from(stream, allow_invalid=True)
-        return instance, instance.size
+        return instance, len(instance)
 
     @property
     def min_size(self):
@@ -195,7 +194,7 @@ class EmbeddedField(
     def validate(self, instance, raise_exception=True):
         value = self.get(instance)
         if value is None:
-            return False
+            return True
         return self.validate_value(value, raise_exception, instance)
 
     def validate_value(self, value, raise_exception=False, instance='unknown'):
@@ -205,9 +204,9 @@ class EmbeddedField(
             elif not raise_exception:
                 return False
             else:
-                if hasattr(self, 'field_name'):
+                try:
                     field_name = self.field_name
-                else:
+                except:
                     field_name = self
                 raise ValueError(
                     'Field "%s" is invalid (value "%s", instance %s)' % (
@@ -253,10 +252,8 @@ class SwitchField(
         self.index = index
         self.default = default
 
-    @property
-    def size(self):
-        # TODO: Allow for variable sizing based on instance data.
-        return sum([s.size for s in self.subfields])
+    def get_size(self, instance):
+        return self.get_real_type(instance).get_size(instance)
 
     @property
     def sort_order(self):
@@ -293,11 +290,8 @@ class SwitchField(
 
             # TODO: Expose a better API from subfields so that we don't
             # have to do this hackety hack:
-            if hasattr(subfield, 'validate_value'):
-                if subfield.validate_value(result, raise_exception=False):
-                    return result, size
-            else:
-                raise ValueError("Subfield has no validator!")
+            if subfield.validate_value(result, raise_exception=False):
+                return result, size
         if all(len(stream) < subfield.min_size for subfield in self.subfields):
             raise ValueError(
                 "All subfields had minimum sizes greater than the available "
@@ -383,10 +377,11 @@ class ArrayField(
         self.index = index
         self.default = default
 
-    @property
-    def size(self):
-        # TODO: Allow for variable sizing based on instance data.
-        return self.subfield
+    def get_size(self, instance):
+        return sum([
+            self.subfield.size(target)
+            for target in super(ArrayField, self).get(instance)
+        ])
 
     @property
     def sort_order(self):
@@ -426,7 +421,6 @@ class ArrayField(
                 stream[total_size:])
 
             if not self.subfield.validate_value(result, raise_exception=False):
-                print "Subfield could not validate: %s" % result
                 break
 
             results.append(result)
@@ -474,7 +468,7 @@ class ArrayField(
         )
 
 
-class Empty(DummyProperty):
+class Empty(DummyProperty, Serializable):
     def __init__(self, index, size):
         self.index = index
         self.size = size
@@ -526,13 +520,11 @@ class BitProxy(FieldProxy, Validatable):
         self.default = default
         self.validator = validate
 
+    size = 1
+
     @property
     def index(self):
         return self.parent.index
-
-    @property
-    def size(self):
-        return 1
 
     def get(self, instance):
         value = self.parent.get(instance)
@@ -554,6 +546,7 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable,
                Serializable,
                Storable, Nameable):
     size = 1
+    min_size = 1
     field_count = 8
 
     def __init__(self, index, *members):
@@ -575,10 +568,6 @@ class Bitfield(property, ProxyTarget, BinaryProperty, Parseable,
 
     def parse_and_get_size(self, stream):
         return (unpack_from('B', stream, 0)[0], self.size)
-
-    @property
-    def min_size(self):
-        return self.size
 
     def serialize(self, instance):
         return pack('B', self.get(instance))

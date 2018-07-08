@@ -9,7 +9,7 @@ from field_classes import ByteAlignedStructField, \
     SwitchField, \
     ArrayField
 
-from bases import SpaceOccupyingProperty
+from bases import SpaceOccupyingProperty, BinaryProperty
 
 from constants import (
     Big,
@@ -104,7 +104,7 @@ def big_endian_signed_integer(default=0, validate=None):
 
 
 def string(size, null_terminated=True, default='', validate=None):
-    index = infer_index_from_position(stack_depth=1)
+    index = infer_index_from_position()
     return StringField(
         index=index,
         size=size,
@@ -123,17 +123,25 @@ def embed(struct_type, default=None, validate=None):
 
 
 def one_of(*types, **kwargs):
+    coerced_types = [
+        type if isinstance(type, BinaryProperty) else embed(type)
+        for type in types
+    ]
     return SwitchField(
-        types,
+        coerced_types,
         index=infer_index_from_position(stack_depth=1),
         default=kwargs.get("default"))
 
+switch = one_of
 
-def array(subtype, **kwargs):
+
+def array_of(subtype, **kwargs):
     return ArrayField(
-        subtype,
+        subtype if isinstance(subtype, BinaryProperty) else embed(subtype),
         index=infer_index_from_position(stack_depth=1),
         default=kwargs.get("default"))
+
+array = array_of
 
 
 def infer_index_from_position(stack_depth=0):

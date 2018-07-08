@@ -23,10 +23,25 @@ except ImportError:
 
 
 class Struct(object, StorageTarget):
-    __names_propagated = False
+
+    @classmethod
+    def memoize(cls, func):
+        cache = getattr(cls, '__cached', {})
+        key = func.__name__
+        if key not in cache:
+            value = func()
+            cache[key] = value
+            setattr(cls, '__cached', cache)
+        else:
+            value = cache[key]
+        return value
 
     @classmethod
     def binary_properties(cls):
+        return cls.memoize(cls.compute_binary_properties)
+
+    @classmethod
+    def compute_binary_properties(cls):
         return sorted([
             (p, getattr(cls, p))
             for p in dir(cls)
@@ -35,6 +50,10 @@ class Struct(object, StorageTarget):
 
     @classmethod
     def logical_properties(cls):
+        return cls.memoize(cls.compute_logical_properties)
+
+    @classmethod
+    def compute_logical_properties(cls):
         return sorted([
             (p, getattr(cls, p))
             for p in dir(cls)
@@ -43,17 +62,25 @@ class Struct(object, StorageTarget):
 
     @classmethod
     def propagate_names(cls):
-        if cls.__names_propagated:
-            return
+        cls.memoize(cls.heavy_propagate_names)
 
+    @classmethod
+    def heavy_propagate_names(cls):
         for p in dir(cls):
             if isinstance(getattr(cls, p), Nameable):
                 getattr(cls, p).set_field_name(p)
 
-        cls.__names_propagated = True
+    @classmethod
+    def format_binary_properties(cls):
+        cls.propagate_names()
+        return "\n".join([str(b) for b in cls.binary_properties()])
 
     @classmethod
     def min_size(cls):
+        return cls.memoize(cls.compute_min_size)
+
+    @classmethod
+    def compute_min_size(cls):
         return sum([p.min_size for _, p in cls.binary_properties()])
 
     @classmethod
@@ -103,11 +130,16 @@ class Struct(object, StorageTarget):
 
         return instance
 
-    @property
-    def size(self):
-        return len(self.serialize())
+    def __len__(self):
+        return sum([
+            property.get_size(self)
+            for (_, property) in self.binary_properties()
+        ])
 
-    RESERVED_KWARGS = ('allow_invalid', 'raise_exception')
+    RESERVED_KWARGS = (
+        'allow_invalid',
+        'raise_exception'
+    )
 
     def __init__(self, **kwargs):
         self.__class__.propagate_names()
